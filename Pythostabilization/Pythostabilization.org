@@ -1,4 +1,4 @@
-#+OPTIONS:    H:3 num:nil toc:1 \n:nil @:t ::t |:t ^:{} -:t f:t *:t TeX:t LaTeX:t skip:t d:(HIDE) tags:not-in-toc
+#+OPTIONS:    H:3 num:nil toc:1 \n:nil @:t ::t |:t -:t f:t *:t TeX:t LaTeX:t skip:t d:(HIDE) tags:not-in-toc
 #+STARTUP:    align fold nodlcheck hidestars oddeven lognotestate 
 #+TITLE:    PYTHOSTABILIZATION
 #+AUTHOR:    teoten
@@ -33,7 +33,7 @@
 
 ** THE EXPERIMENT
 
-The area surrounding the city of [[https://en.wikipedia.org/wiki/P%C5%99%C3%ADbram][Příbram]] in the Czech Republic is know 
+The area surrounding the city of [[https://en.wikipedia.org/wiki/P%C5%99%C3%ADbram][Příbram]] in the Czech Republic is known 
 for its history mining silver and iron. In the last 200 years a smelter
 has been contaminating the air and the river with Zn, Pb, Cd and As, 
 until 1972 when its production stopped. Today the smelter recycles Hg from 
@@ -63,7 +63,7 @@ found in [[https://www.sciencedirect.com/][ScienceDirect]] under the name
 
 ** THE DATA
 
-Samples of soil and plant from the contaminated site described above were
+Samples of soil and plant from the conxtaminated site described above were
 taken during 2017 in four different times. The samples were processed in
 the [[https://www.fzp.czu.cz/en/][Faculty of Environmental Sciences]] of the [[https://www.czu.cz/cs/][Czech University of Life Sciences of Prague]].
 The measurements include different fractions of the elements in the soil

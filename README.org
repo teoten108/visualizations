@@ -1,4 +1,4 @@
-#+OPTIONS:    H:3 num:nil toc:2 \n:nil @:t ::t |:t ^:{} -:t f:t *:t TeX:t LaTeX:t skip:t d:(HIDE) tags:not-in-toc
+#+OPTIONS:    H:3 num:nil toc:2 \n:nil @:t ::t |:t -:t f:t *:t TeX:t LaTeX:t skip:t d:(HIDE) tags:not-in-toc
 #+STARTUP:    align fold nodlcheck hidestars oddeven lognotestate 
 #+TITLE:    VISUALIZATIONS
 #+AUTHOR:    teoten
@@ -8,8 +8,8 @@
 #+BABEL: :exports both
 
 * REPOSITORY CONTENT
-   - [ ] [[/Pythostabilization][Pythostabilization]]
-   - [ ] Compochar
+   - [[./Pythostabilization/Pythostabilization.org][Pythostabilization]]
+   - Compochar
 
 * DESCRIPTION
 
