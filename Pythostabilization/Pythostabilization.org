@@ -57,7 +57,6 @@ finding plants with potential for Phytostabilization. The paper can be
 found in [[https://www.sciencedirect.com/][ScienceDirect]] under the name
 [[https://www.sciencedirect.com/science/article/pii/S0048969719347011][Seasonal fluctuations of Zn, Pb, As and Cd contents in the biomass of selected grass species growing on contaminated soils: Implications for in situ phytostabilization]]
 
-#+CAPTION[Graphical Abstract]: Representation
 #+NAME:   fig:1
 #+ATTR_HTML: :width 80% :height 80%
 [[./GraphAbstract.png]]
@@ -85,7 +84,7 @@ The variables used are summarised in the following code block.
       + Symbol followed by =.a= is the concentration in the above-ground plant parts.
       + Symbol followed by =.b= is the concentration in the below-ground plant parts.
 
-#+BEGIN_SRC R :session :results output code
+#+BEGIN_SRC R :session :results output code :exports both
    data_all
 #+END_SRC
 
@@ -119,7 +118,7 @@ The variables used are summarised in the following code block.
 
 Here is a simple example: Cd concentrations in above-ground tissue
 
-#+BEGIN_SRC R :session :file fig2.png :results graphics file :results output
+#+BEGIN_SRC R :session :file fig2.png :results graphics file :exports both
   data_all %>%
       group_by(Specie, Time) %>%
       summarise(Mean = mean(Cd.a),
@@ -189,7 +188,7 @@ elements that we want to plot:
 
 Now we can use the package Cowplot to set the bar plots together.
 
-#+BEGIN_SRC R :session :file fig3.png :results graphics file :results output
+#+BEGIN_SRC R :session :file fig3.png :results graphics file :exports both
   library(cowplot)
   
   ## Get legends
@@ -211,7 +210,7 @@ Now we can use the package Cowplot to set the bar plots together.
 #+RESULTS:
 [[file:fig3.png]]
 
-#+BEGIN_SRC R :session :file fig4.png :results graphics file :results output
+#+BEGIN_SRC R :session :file fig4.png :results graphics file :exports both
    leg_below  <- ggdraw() +
       draw_label(expression('Below-ground Tissue'),
                  fontface = 'bold',
@@ -225,7 +224,7 @@ Now we can use the package Cowplot to set the bar plots together.
 #+RESULTS:
 [[file:fig4.png]]
 
-#+BEGIN_SRC R :session :file fig5.png :results graphics file :results output
+#+BEGIN_SRC R :session :file fig5.png :results graphics file :exports both
    leg_above  <- ggdraw() +
       draw_label(expression('Above-ground Tissue'),
                  fontface = 'bold',
