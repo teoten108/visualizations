@@ -1,4 +1,4 @@
-#+OPTIONS:    H:3 num:nil toc:1 \n:nil @:t ::t |:t -:t f:t *:t TeX:t LaTeX:t skip:t d:(HIDE) tags:not-in-toc
+#+OPTIONS:    H:3 num:nil toc:2 \n:nil @:t ::t |:t -:t f:t *:t TeX:t LaTeX:t skip:t d:(HIDE) tags:not-in-toc
 #+STARTUP:    align fold nodlcheck hidestars oddeven lognotestate 
 #+TITLE:    PYTHOSTABILIZATION
 #+AUTHOR:    teoten
@@ -12,7 +12,6 @@
 
 #+BEGIN_SRC R :session :exports none
   library(tidyverse)
-  library(kgv)
   library(cowplot)
 
   amf  <- read.table('../ignore/Phytostabilization/AMF.txt', header=T)
@@ -24,7 +23,6 @@
 
   data_all <- as_tibble(amf) %>%
       left_join(as_tibble(variables))
-
   data_all <- mutate(data_all, Time = parse_factor(as.character(Time),
                                          levels = c('Mar', 'May',
                                                     'Jul', 'Nov')))
@@ -77,7 +75,7 @@ Here follows the visualisations used for the paper, in a more visual style,
 and with the examples of the code used in R.
 
 The variables used are summarised in the following code block.
-    + *Specie*: Three different species of grass were used. These are represented by =A= (/Agrostis capillaris/), =F= (/Festuca rubra/) and =M= (/Arrhenaterus elatius/).
+    + *Specie*: Three different species of grass were used. These are represented by =A= (/Agrostis capillaris/), =C= (/Calamagrostis epigeios/) and =M= (/Arrhenaterus elatius/).
     + *F and M*: =F= is the total mycorrhiza colonisation in roots and =M= the intensity of colonisation.
     + *Element symbols*: The single symbols of chemical elements contain the total concentrations in the sample taken.
       + Symbol followed by =.ext= is the extractable, or bio-available fraction.
@@ -115,6 +113,8 @@ The variables used are summarised in the following code block.
 #   Fe.a <dbl>, Ni.a <dbl>, Cu.a <dbl>, Zn.a <dbl>, As.a <dbl>, Se.a <dbl>,
 #   Sr.a <dbl>, Mo.a <dbl>, Cd.a <dbl>, Pb.a <dbl>, Ba.a <dbl>
 #+end_src
+
+** CONCENTRATIONS OF ELEMENTS
 
 Here is a simple example: Cd concentrations in above-ground tissue
 
@@ -237,3 +237,109 @@ Now we can use the package Cowplot to set the bar plots together.
 
 #+RESULTS:
 [[file:fig5.png]]
+
+The plots show in a clear and organised way statistical differences or
+similarities between the concentrations of contaminants in different parts.
+Our aim was to find the best candidate for phytostabilization, therefore 
+the bars were sorted in a way that is easy to compare the different 
+species. In this visualisations is easy to notice that /A. capillaris/ 
+has the highest concentrations of Pb, Zn and As in the below-ground
+parts, while relatively lower in the upper parts. This balance it one of
+the characteristics that we need in a good phytostabilizing specie.
+
+** PCA
+
+Thanks to the advantages of new techniques and technology, most of modern
+ICP machines can read concentrations of several elements in a short period
+of time. The paper was focused on contaminants, as the shown above, but
+concentrations of several other elements were also taken. Thus, a Principal
+Components Analysis (PCA) was done to explore the role and influence of 
+other important elements, such as nustrients, in our study.
+
+Here follows the code used to perform PCA. The library =ade4= was used due
+to its multiple advantages, among other, the centralization and 
+normalization of data in a very easy and intuitive way.
+
+#+BEGIN_SRC R :session
+  library(ade4)
+  library(factoextra)
+
+  ## Normalization of percentages
+  data_all <- mutate(data_all,
+         F_norm = asin(sqrt(F/100)),
+         M_norm = asin(sqrt(M/100)))
+  ## Separation of numeric and categorical variables
+  vars <- select(data_all, S:M_norm)
+
+  ## The vector with the species only
+  species <- factor(data_all$Specie, levels=c('A','C','M'))
+
+  ## PCA
+  pca_grass <- dudi.pca(vars, nf=3, scannf=F)
+#+END_SRC
+
+#+BEGIN_SRC R :session :file pca1.png :results graphics file :exports both
+  ## Plot all the variables colored by contribution 
+  fviz_pca_var(pca_grass,
+               labelsize = 5,
+               col.var = "contrib", # Color by contributions to the PC
+               #gradient.cols = c("#cccccc", "#000000"), # B/W
+               repel = TRUE,     # Avoid text overlapping,
+               title = "PCA",
+               col.circle = "black") +
+      theme(text = element_text(size = 18),
+            axis.title = element_text(size = 14),
+            axis.text = element_text(size = 12))
+#+END_SRC
+
+#+RESULTS:
+[[file:pca1.png]]
+
+Biplot: Sites and variables together
+
+#+BEGIN_SRC R :session :file pca2.png :results graphics file :exports both
+fviz_pca_biplot(pca_grass, repel = TRUE,
+                col.var = "#2E9FDF", # Variables color
+                col.ind = "#696969")  # Individuals color
+#+END_SRC
+
+#+RESULTS:
+[[file:pca2.png]]
+                
+We can still improve the colors by creating a vector with values,
+and mixing plots using =add.plot=T=
+
+#+BEGIN_SRC R :session 
+  colores <- c(rep('black',9), # elements
+             rep('#990066',16), # ext
+             rep('#9966FF',20), # below
+             rep('#663366',20), # above
+             rep('#000066',2)) # AMF
+
+  png('pca3.png', width = 750)
+  scatter(pca_grass, clab.row = 0, posieig = "none")
+  fviz_pca_biplot(pca_grass,
+                  repel = TRUE,
+                  geom="point",
+                  col.ind = "white",
+                  add.plot = T,
+                  col.var = colores) +
+      theme(legend.position="none")
+  s.class(pca_grass$li,
+          fac = species,  # color by groups
+          col = c("blue",  "red",  "yellow"),
+          add.plot = T)
+  dev.off()
+#+END_SRC
+
+#+NAME:   fig:pca3
+[[./pca3.png]]
+
+The last plot shows the clear separation of groups:
+    - Concentration of elements in plants is grouped in the upper part of the plot
+    - /A. elatius/ and /C. epigeios/ are grouped in the lower part, meaning little relationship between this species and the uptake of elements.
+    - Elements in the below-ground are group at the left
+    - /A. capillaris/ is grouped at the upper left, meaning a good correlation between this specie and the elements in the below-ground parts
+    - Elements in the above-ground biomass are grouped at the upper-right, meaning a negative correlation of this with /A. capillaris/
+
+Once again, our results point at /A. capillaris/ potential.
