@@ -27,6 +27,8 @@
                                          levels = c('Mar', 'May',
                                                     'Jul', 'Nov')))
 
+  save(data_all, file = 'grasses_all.RData')
+
 #+END_SRC
 
 ** THE EXPERIMENT

@@ -9,6 +9,7 @@
 
 * REPOSITORY CONTENT
    - [[./Pythostabilization/Pythostabilization.org][Pythostabilization]]
+   - [[./grass_plot/grass_plot.org][grass_plot]]
    - Compochar
 
 * DESCRIPTION

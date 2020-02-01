@@ -1,0 +1,246 @@
+#+OPTIONS:    H:3 num:nil toc:2 \n:nil @:t ::t |:t -:t f:t *:t TeX:t LaTeX:t skip:t d:(HIDE) tags:not-in-toc
+#+STARTUP:    align fold nodlcheck hidestars oddeven lognotestate 
+#+TITLE:    GRASS_PLOT
+#+AUTHOR:    teoten
+#+EMAIL:     teoten@gmail.com
+#+LANGUAGE:   en
+#+STYLE:      <style type="text/css">#outline-container-introduction{ clear:both; }</style>
+#+BABEL: :exports both
+#+PROPERTY: header-args :exports both
+
+
+* A plot with the grass shape
+
+Part of doing a PhD includes artistic work. It is very useful to learn
+proper tools for editing and manipulating images, in order to improve or
+support the visualisations created by the data. As part of this, for some
+work I got the idea to plot the concentrations of elements in a 
+proportional relation, directly over a grass. Here is what I got.
+
+** Grass shape
+
+To obtain the shape of the grass, I basically google couple of images that
+could represent well the shapes of the shoot and root parts of the grass.
+Then, using [[https://www.gimp.org/][GIMP]] I draw the shape and export the path as a SVG file. Here
+is how it looks.
+
+#+NAME:   fig:1
+#+ATTR_HTML: :width 80% :height 80%
+[[./gimp.png]]
+
+** Extracting the points in R
+
+Once the points are in a SVG file, it is very easy to extract the points
+as coordinates using R-packages =XML=
+
+#+BEGIN_SRC R :session
+   library(XML)
+   library(stringr)
+
+   doc <- htmlParse('coord_root')
+
+   ## Extract the coordinates, as strings
+   p <- xpathSApply(doc, "//path", xmlGetAttr, "d")
+   ## Remove excess of characters
+   p <- str_remove_all(p, '[MC]')
+
+   ## Convert them to numbers
+   points <- lapply(strsplit(p, " "),
+                    function(u) 
+                        matrix(as.numeric(unlist(strsplit(u, ","))),
+                               ncol=2,
+                               byrow=TRUE) )
+
+   root <- as.data.frame(points)
+   ## Repeat the same for shoot
+   
+   shoot$part <- 'shoot'
+   root$part <- 'root'
+   grass <- rbind(root, shoot)
+
+   ## Fix the names and save as CSV
+   names(grass) <- c('y', 'x', 'part')
+   write.table(grass, 'grass_coords.csv', sep = ',', row.names = F)
+#+END_SRC
+
+Here is how it looks at first sight
+
+#+BEGIN_SRC R :session :file prev.png :results graphics file :exports both
+  library(ggplot2)
+  grass_plot <- read.csv('grass_coords.csv')
+  
+  ggplot(grass_plot, aes(x, y)) +
+    geom_polygon(aes(fill = part))
+#+END_SRC
+
+#+RESULTS:
+[[file:prev.png]]
+
+** Ploting the data
+
+#+BEGIN_SRC R :session :exports none
+  library(tidyverse)
+  library(cowplot)
+  library('RColorBrewer')
+  
+  load('../ignore/Phytostabilization/grasses_all.RData')
+  grass_plot <- read.csv('grass_coords.csv', header = T)
+  
+  hydrop <- read_csv('../ignore/ICP-Plant.csv')
+  (hydrop <- hydrop %>%
+       filter(Sp == 'A' | Sp == 'F') %>%
+       remove_missing())
+  hydrop$Pb <- 0
+  hydrop$Cd <- 0
+  (hydrop <- select(hydrop, Part:Cd) %>%
+       pivot_longer(cols = B:Cd,
+                    names_to = 'element',
+                    values_to = 'concentration') %>%
+       mutate(part = ifelse(Part == 'R', 'root', 'shoot')) %>%
+      select(-Part))
+                    
+#+END_SRC
+
+We want to fill the grass shapes with
+ the concentrations of elements that we found in the
+[[https://github.com/teoten108/visualizations/blob/master/Pythostabilization/Pythostabilization.org][pythostabilization]] experiment.
+To start mapping the data into our grass shape, we need to join the tables
+containing the data with the plot coordinates. Also, as we want to find
+the differences between each element, we are going to change the format,
+where each column contains an element, into a single column, having each
+element as a categorical variable. Here is how it looks
+
+#+BEGIN_SRC R :session :results output code :exports both
+  grass_cont <- data_all %>%
+      filter(Specie == 'A') %>%
+      select(Na.b:Ba.a,
+             -'Ti.b', -'V.b', -'Sr.b', -'Mo.b',
+             -'Ti.a', -'V.a', -'Sr.a', -'Mo.a') %>%
+      pivot_longer(everything(),
+                   names_to = 'elements',
+                   values_to = 'concentration') %>%
+      separate(elements, into = c("element", "part"), sep = "\\.") %>%
+      mutate(part = ifelse(part == 'b', 'root', 'shoot'))
+
+  ## Join coordinates with data
+  data_map <- left_join(grass_cont, grass_plot, by = 'part')
+  data_map
+#+END_SRC
+
+#+RESULTS:
+#+begin_src R
+
+Warning message:
+Column `part` joining character vector and factor, coercing into character vector
+
+# A tibble: 439,808 x 5
+   element part  concentration     y     x
+   <chr>   <chr>         <dbl> <dbl> <dbl>
+ 1 Na      root           196.  184.  122.
+ 2 Na      root           196.  184.  122.
+ 3 Na      root           196.  177.  118.
+ 4 Na      root           196.  177.  118.
+ 5 Na      root           196.  177.  118.
+ 6 Na      root           196.  172.  109.
+ 7 Na      root           196.  172.  109.
+ 8 Na      root           196.  172.  109.
+ 9 Na      root           196.  169.  103.
+10 Na      root           196.  169.  103.
+# … with 439,798 more rows
+#+end_src
+
+This data set contains the element composition of plants growing in a
+contaminated soil. We would like to compare this with, say, normal plants.
+For that purpose, we are going to use data obtained from an experiment
+where plants of /A. capillaris/ were grown in hydroponics under perfect
+nutrient conditions. 
+
+Here is a sample of the data
+
+#+BEGIN_SRC R :session :results output code :exports both
+   hydrop
+#+END_SRC
+
+#+RESULTS:
+#+begin_src R
+Error: object 'hydrop' not found
+#+end_src
+
+Now we can preparate the data, all together in a single tibble, and do a
+first plot.
+
+#+BEGIN_SRC R :session :file GP1.png :results graphics file :exports both
+  ## Differentiate between each experiment
+  data_map$source <- "Contaminated"
+  hydrop$source <- "Hydroponics"
+  ## Join the data frames
+  hydrop <- left_join(hydrop, grass_plot, by = 'part')
+
+  data_map <- full_join(data_map, hydrop)
+
+  ## FIRST PLOT
+  filter(data_map, source == "Hydroponics") %>%
+   ggplot(aes(x, y, group = part)) +
+       geom_polygon(aes(fill = concentration)) +
+       facet_grid(~element) +
+       theme_bw() +
+       labs(x = NULL, y = NULL) +
+       theme(title = element_text(face="bold", size = 15),
+             axis.title.x=element_blank(),
+             axis.text.x=element_blank(),
+             axis.ticks.x=element_blank(),
+             axis.title.y=element_blank(),
+             axis.text.y=element_blank(),
+             axis.ticks.y=element_blank())
+#+END_SRC
+
+#+RESULTS:
+[[file:GP1.png]]
+
+Due to the big differences in the concentration values of each element,
+it is difficult to see when certain values are too low or too high.
+
+#+BEGIN_SRC R :session :file GP2.png :results graphics file :exports both
+   grass_plot_el <- function(elmnt = 'Pb'){
+      my.palette <- colorRampPalette(rev(brewer.pal(10, "Spectral")))  
+      sc <- scale_fill_gradientn(name = "Concentration",
+                                colours = my.palette(150))
+      filter(data_map, element == ensym(elmnt)) %>%
+          ggplot(aes(x, y, group = part)) +
+          geom_polygon(aes(fill = concentration)) +
+          facet_grid(~source) +
+          theme_bw() +
+          labs(title = elmnt,
+               x = NULL, y = NULL) +
+          theme(title = element_text(face="bold", size = 15),
+                strip.text.x = element_text(size = 14, face = 'bold'),
+                axis.title.x=element_blank(),
+                axis.text.x=element_blank(),
+                axis.ticks.x=element_blank(),
+                axis.title.y=element_blank(),
+                axis.text.y=element_blank(),
+                axis.ticks.y=element_blank()) + sc
+   }
+
+   grass_plot_el()
+#+END_SRC
+
+#+RESULTS:
+[[file:GP2.png]]
+
+Let's choose the main nutrients and the main contaminants to plot
+
+#+BEGIN_SRC R :session
+   target_elements <- c('K','Ca','Cu', 'Fe',
+                        'Mn','Cd', 'Pb', 'Zn')
+   
+   target_plot <- lapply(target_elements, grass_plot_el)
+
+   png('GP3.png', width = 680, height = 750)
+   plot_grid(plotlist = target_plot, ncol = 2)
+   dev.off()
+#+END_SRC
+
+#+NAME:   fig:gp3
+#+ATTR_HTML: :width 100% :height 100%
+[[./GP3.png]]
