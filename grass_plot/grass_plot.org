@@ -78,13 +78,14 @@ Here is how it looks at first sight
 
 ** Ploting the data
 
-#+BEGIN_SRC R :session :exports none
+#+BEGIN_SRC R :session :export none
   library(tidyverse)
   library(cowplot)
   library('RColorBrewer')
   
   load('../ignore/Phytostabilization/grasses_all.RData')
-  grass_plot <- read.csv('grass_coords.csv', header = T)
+  dat_cont <- data_all 
+  grass_coords <- read.csv('grass_coords.csv', header = T)
   
   hydrop <- read_csv('../ignore/ICP-Plant.csv')
   (hydrop <- hydrop %>%
@@ -92,18 +93,30 @@ Here is how it looks at first sight
        remove_missing())
   hydrop$Pb <- 0
   hydrop$Cd <- 0
-  (hydrop <- select(hydrop, Part:Cd) %>%
-       pivot_longer(cols = B:Cd,
-                    names_to = 'element',
-                    values_to = 'concentration') %>%
-       mutate(part = ifelse(Part == 'R', 'root', 'shoot')) %>%
-      select(-Part))
-                    
+  hydrop$As <- 0
+  dat_hydrop <- hydrop 
+
+  rm(data_all, hydrop)
+
+  #grass_coords  # Coordinates of the grass 
+  #dat_hydrop    # Data from hydroponics
+  #dat_cont      # Data from grass experiment                   
 #+END_SRC
 
-We want to fill the grass shapes with
- the concentrations of elements that we found in the
-[[https://github.com/teoten108/visualizations/blob/master/Pythostabilization/Pythostabilization.org][pythostabilization]] experiment.
+We want to fill the grass shapes with the concentrations of elements that 
+we found in the [[https://github.com/teoten108/visualizations/blob/master/Pythostabilization/Pythostabilization.org][pythostabilization]] experiment.
+This data set contains the element composition of plants growing in a
+contaminated soil. We also would like to compare this with, say, normal 
+plants. For that, we are going to use data obtained from an experiment
+where plants of /A. capillaris/ were grown in hydroponics under perfect
+nutrient conditions. 
+
+Here is a sample of the data
+
+#+BEGIN_SRC R :session :results output code :exports both
+   dat_hydrop
+#+END_SRC
+
 To start mapping the data into our grass shape, we need to join the tables
 containing the data with the plot coordinates. Also, as we want to find
 the differences between each element, we are going to change the format,
@@ -111,77 +124,42 @@ where each column contains an element, into a single column, having each
 element as a categorical variable. Here is how it looks
 
 #+BEGIN_SRC R :session :results output code :exports both
-  grass_cont <- data_all %>%
+  dat_hydrop <- select(dat_hydrop, Part:Cd) %>%
+       pivot_longer(cols = B:Cd,
+                    names_to = 'element',
+                    values_to = 'concentration') %>%
+       mutate(part = ifelse(Part == 'R', 'root', 'shoot')) %>%
+      select(-Part)
+  dat_hydrop$source <- "hydroponics"
+
+  dat_cont <- dat_cont %>%
       filter(Specie == 'A') %>%
-      select(Na.b:Ba.a,
-             -'Ti.b', -'V.b', -'Sr.b', -'Mo.b',
-             -'Ti.a', -'V.a', -'Sr.a', -'Mo.a') %>%
+      select(Na.b:Ba.a) %>%
       pivot_longer(everything(),
                    names_to = 'elements',
                    values_to = 'concentration') %>%
       separate(elements, into = c("element", "part"), sep = "\\.") %>%
-      mutate(part = ifelse(part == 'b', 'root', 'shoot'))
+      mutate(part = ifelse(part == 'b', 'root', 'shoot')) %>%
+      filter(element %in% unique(dat_hydrop$element))
+  dat_cont$source <- "contaminated"
 
-  ## Join coordinates with data
-  data_map <- left_join(grass_cont, grass_plot, by = 'part')
-  data_map
+  dat_hydrop <- filter(dat_hydrop, element %in% unique(dat_cont$element))
+
+  dat_grasses <- full_join(dat_cont, dat_hydrop)
+  ## Now here is all the data together
+
+  ## Add the coordinates
+  dat_map <- left_join(dat_grasses, grass_coords, by = 'part')
+  dat_map
 #+END_SRC
 
-#+RESULTS:
-#+begin_src R
-
-Warning message:
-Column `part` joining character vector and factor, coercing into character vector
-
-# A tibble: 439,808 x 5
-   element part  concentration     y     x
-   <chr>   <chr>         <dbl> <dbl> <dbl>
- 1 Na      root           196.  184.  122.
- 2 Na      root           196.  184.  122.
- 3 Na      root           196.  177.  118.
- 4 Na      root           196.  177.  118.
- 5 Na      root           196.  177.  118.
- 6 Na      root           196.  172.  109.
- 7 Na      root           196.  172.  109.
- 8 Na      root           196.  172.  109.
- 9 Na      root           196.  169.  103.
-10 Na      root           196.  169.  103.
-# … with 439,798 more rows
-#+end_src
-
-This data set contains the element composition of plants growing in a
-contaminated soil. We would like to compare this with, say, normal plants.
-For that purpose, we are going to use data obtained from an experiment
-where plants of /A. capillaris/ were grown in hydroponics under perfect
-nutrient conditions. 
-
-Here is a sample of the data
-
-#+BEGIN_SRC R :session :results output code :exports both
-   hydrop
-#+END_SRC
-
-#+RESULTS:
-#+begin_src R
-Error: object 'hydrop' not found
-#+end_src
-
-Now we can preparate the data, all together in a single tibble, and do a
-first plot.
+Now we can create a first plot using (dat_map)
 
 #+BEGIN_SRC R :session :file GP1.png :results graphics file :exports both
-  ## Differentiate between each experiment
-  data_map$source <- "Contaminated"
-  hydrop$source <- "Hydroponics"
-  ## Join the data frames
-  hydrop <- left_join(hydrop, grass_plot, by = 'part')
-
-  data_map <- full_join(data_map, hydrop)
-
   ## FIRST PLOT
-  filter(data_map, source == "Hydroponics") %>%
+  filter(dat_map, source == "hydroponics") %>%
    ggplot(aes(x, y, group = part)) +
-       geom_polygon(aes(fill = concentration)) +
+      geom_polygon(aes(fill = concentration))  +
        facet_grid(~element) +
        theme_bw() +
        labs(x = NULL, y = NULL) +
@@ -199,13 +177,131 @@ first plot.
 
 Due to the big differences in the concentration values of each element,
 it is difficult to see when certain values are too low or too high.
+We will need to try other aproaches.
 
-#+BEGIN_SRC R :session :file GP2.png :results graphics file :exports both
+*** PLOT IN PERCENTAGES
+
+One way could be to plot, instead of the concentrations of elements, the
+percentage, having as a hundred the sum of all the elements involved.
+This can be tricky when adding or removing elements, thus the best approach
+would be to create a function that do it automatically.
+
+#+BEGIN_SRC R :session
+  grass_plot_percent <- function(.df){
+      ## Get totals
+      totals <- group_by(.df, source, part) %>%
+          summarise(total = sum(concentration))
+      ## Get percentages
+      dat_percent <- left_join(.df, totals)
+      dat_percent <- mutate(dat_percent,
+                            percent = concentration/total,
+                            percent = percent*100)
+      ## Add coordinates 
+      dat_percent <- left_join(dat_percent, grass_coords, by = 'part')
+      ## Modify colors palette 
+      my.palette <- colorRampPalette(rev(brewer.pal(5, "Spectral")))  
+      sc <- scale_fill_gradientn(name = "Proportion",
+                                 colours = my.palette(100))                                
+      ## PLOT
+      pl <- ggplot(dat_percent, aes(x, y, group = part)) +
+          geom_polygon(aes(fill = percent))  +
+          facet_grid(~element) +
+          theme_bw() +
+          labs(x = NULL, y = NULL) +
+          theme(title = element_text(face="bold", size = 15),
+                axis.title.x=element_blank(),
+                axis.text.x=element_blank(),
+                axis.ticks.x=element_blank(),
+                axis.title.y=element_blank(),
+                axis.text.y=element_blank(),
+                axis.ticks.y=element_blank()) + sc
+      pl
+  }
+#+END_SRC
+
+Now the function will work considering that the data frame contains the
+columns =part= and =source= and that we are grouping by this both of them.
+Also we should considering keeping the columns =element= and 
+=concentration= with such names.
+
+Here is a plot applying the function
+
+#+BEGIN_SRC R :session 
+  ## Get mean values by element
+  mean_hydrop <- group_by(dat_hydrop, part, source, element) %>%
+      summarise(concentration = mean(concentration))
+  mean_cont <- group_by(dat_cont, part, source, element) %>%
+      summarise(concentration = mean(concentration))
+  
+  png('GP2.png', width = 750)
+  plot_grid(
+  grass_plot_percent(mean_hydrop) + labs(title = 'Hydroponics'),
+  grass_plot_percent(mean_cont) + labs(title = 'Contaminated'),
+  ncol = 1, nrow = 2)
+  dev.off()
+#+END_SRC
+
+#+NAME:   fig:gp2
+#+ATTR_HTML: :width 100% :height 100%
+[[./GP2.png]]
+
+The plot is still not so accurate, some elements have very low 
+concentrations, even when given in percentages, and each generated plot
+uses different scale of the colours. However, we can already see certain
+differences:
+    - *K* Has quite high concentrations in ideal conditions (hydroponics). It makes sense as it is considered a macro nutrient. However, when contamination influences the plant, the up-take of K reduces.
+    - *Fe* in the roots of contaminated plants increases considerably
+    - Concentrations of *Zn* also increased in the contaminated plants. Zinc is one of the main contaminants in the site.
+
+Let's reduce the percentage possibilities and plot selected elements
+
+#+BEGIN_SRC R :session :results output code :exports both
+  dat_grasses %>%
+      group_by(part, source, element) %>%
+      summarise(Mean = mean(concentration),
+                Max = max(concentration),
+                Min = min(concentration)) %>%
+      arrange(Mean) %>%
+      print(n = Inf)
+#+END_SRC
+
+Now we can make a clear idea of which elements are in higher concentrations,
+and how to group them. Let's start by the main nutrients
+
+#+BEGIN_SRC R :session :file GP3.png :results graphics file :exports both
+  nutrients <- c('K', 'Ca', 'Fe', 'Mg', 'Na')
+
+  gp_Hyd_nut <- filter(mean_hydrop, element %in% nutrients) %>%
+      grass_plot_percent()
+  gp_Cont_nut <- filter(mean_cont, element %in% nutrients) %>%
+      grass_plot_percent()
+
+  plot_grid(gp_Hyd_nut, gp_Cont_nut, nrow = 2)
+#+END_SRC
+
+Contaminants
+
+#+BEGIN_SRC R :session :file GP4.png :results graphics file :exports both
+  contaminants <- c('Pb', 'Zn', 'Cd', 'Cu', 'Mn')
+
+  gp_Hyd_cont <- filter(mean_hydrop, element %in% contaminants) %>%
+      grass_plot_percent()
+  gp_Cont_cont <- filter(mean_cont, element %in% contaminants) %>%
+      grass_plot_percent()
+
+  plot_grid(gp_Hyd_cont, gp_Cont_cont, nrow = 2)
+#+END_SRC
+
+
+*** PLOT PER ELEMENT
+Another way would be to plot each element on a separated area.
+
+#+BEGIN_SRC R :session :file GP5.png :results graphics file :exports both
    grass_plot_el <- function(elmnt = 'Pb'){
       my.palette <- colorRampPalette(rev(brewer.pal(10, "Spectral")))  
       sc <- scale_fill_gradientn(name = "Concentration",
                                 colours = my.palette(150))
-      filter(data_map, element == ensym(elmnt)) %>%
+      filter(dat_map, element == ensym(elmnt)) %>%
           ggplot(aes(x, y, group = part)) +
           geom_polygon(aes(fill = concentration)) +
           facet_grid(~source) +
@@ -225,9 +321,6 @@ it is difficult to see when certain values are too low or too high.
    grass_plot_el()
 #+END_SRC
 
-#+RESULTS:
-[[file:GP2.png]]
-
 Let's choose the main nutrients and the main contaminants to plot
 
 #+BEGIN_SRC R :session
@@ -236,11 +329,12 @@ Let's choose the main nutrients and the main contaminants to plot
    
    target_plot <- lapply(target_elements, grass_plot_el)
 
-   png('GP3.png', width = 680, height = 750)
+   png('GP6.png', width = 680, height = 750)
    plot_grid(plotlist = target_plot, ncol = 2)
    dev.off()
 #+END_SRC
 
-#+NAME:   fig:gp3
+#+NAME:   fig:gp6
 #+ATTR_HTML: :width 100% :height 100%
-[[./GP3.png]]
+[[./GP6.png]]
+
