@@ -81,7 +81,7 @@ Here is how it looks at first sight
 
 ** Ploting the data
 
-#+BEGIN_SRC R :session :export none
+#+BEGIN_SRC R :session :exports none
   library(tidyverse)
   library(cowplot)
   library('RColorBrewer')
