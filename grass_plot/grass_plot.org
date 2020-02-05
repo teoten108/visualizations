@@ -63,6 +63,9 @@ as coordinates using R-packages =XML=
    write.table(grass, 'grass_coords.csv', sep = ',', row.names = F)
 #+END_SRC
 
+#+RESULTS:
+: org_babel_R_eoe
+
 Here is how it looks at first sight
 
 #+BEGIN_SRC R :session :file prev.png :results graphics file :exports both
@@ -103,6 +106,8 @@ Here is how it looks at first sight
   #dat_cont      # Data from grass experiment                   
 #+END_SRC
 
+#+RESULTS:
+
 We want to fill the grass shapes with the concentrations of elements that 
 we found in the [[https://github.com/teoten108/visualizations/blob/master/Pythostabilization/Pythostabilization.org][pythostabilization]] experiment.
 This data set contains the element composition of plants growing in a
@@ -116,6 +121,28 @@ Here is a sample of the data
 #+BEGIN_SRC R :session :results output code :exports both
    dat_hydrop
 #+END_SRC
+
+#+RESULTS:
+#+begin_src R
+Warning message:
+Removed 3 rows containing missing values.
+
+# A tibble: 77 x 17
+     Rep Treat Sp    Part      B    Ca    Cu    Fe      K    Mg    Mn    Mo
+   <dbl> <dbl> <chr> <chr> <dbl> <dbl> <dbl> <dbl>  <dbl> <dbl> <dbl> <dbl>
+ 1     1     0 A     S      15.8 2655.   7.3 127.  26455. 2296.  80.1  89.8
+ 2     2     0 A     S      14.2 2281.   3.9  69.9 20514. 1814.  68.7  75.1
+ 3     3     0 A     S      19.9 2898.   5.2 107.  17202. 1697.  43.9  80.5
+ 4     4     0 A     S      20.2 2289.   5.6  70.6 17695. 2073.  70.6  83  
+ 5     5     0 A     S      14.6 2629.   4.9 196.  19926. 2701. 110.  110. 
+ 6     1    25 A     S      23.6 3837.   7.5 179.  24065. 3209   70.9  89.6
+ 7     2    25 A     S      23.2 3454.   5.2  88.9 19634  2577.  60.6  74.7
+ 8     3    25 A     S      24.4 2282.   3.8  92.3 15712. 1660.  46.2  83.3
+ 9     4    25 A     S      24.9 3389.   6.5  51   18836. 2020.  57.6  82.5
+10     5    25 A     S      20.1 2916.   4    72.2 15091. 1821.  62.8  97.6
+# … with 67 more rows, and 5 more variables: Na <dbl>, Zn <dbl>, Pb <dbl>,
+#   Cd <dbl>, As <dbl>
+#+end_src
 
 To start mapping the data into our grass shape, we need to join the tables
 containing the data with the plot coordinates. Also, as we want to find
@@ -152,6 +179,30 @@ element as a categorical variable. Here is how it looks
   dat_map <- left_join(dat_grasses, grass_coords, by = 'part')
   dat_map
 #+END_SRC
+
+#+RESULTS:
+#+begin_src R
+
+Joining, by = c("element", "part", "concentration", "source")
+
+Warning message:
+Column `part` joining character vector and factor, coercing into character vector
+
+# A tibble: 1,016,279 x 6
+   element part  concentration source           y     x
+   <chr>   <chr>         <dbl> <chr>        <dbl> <dbl>
+ 1 Na      root           196. contaminated  184.  122.
+ 2 Na      root           196. contaminated  184.  122.
+ 3 Na      root           196. contaminated  177.  118.
+ 4 Na      root           196. contaminated  177.  118.
+ 5 Na      root           196. contaminated  177.  118.
+ 6 Na      root           196. contaminated  172.  109.
+ 7 Na      root           196. contaminated  172.  109.
+ 8 Na      root           196. contaminated  172.  109.
+ 9 Na      root           196. contaminated  169.  103.
+10 Na      root           196. contaminated  169.  103.
+# … with 1,016,269 more rows
+#+end_src
 
 Now we can create a first plot using (dat_map)
 
@@ -205,19 +256,23 @@ would be to create a function that do it automatically.
       ## PLOT
       pl <- ggplot(dat_percent, aes(x, y, group = part)) +
           geom_polygon(aes(fill = percent))  +
-          facet_grid(~element) +
+          facet_grid(cols = vars(element), rows = vars(source)) +
           theme_bw() +
           labs(x = NULL, y = NULL) +
           theme(title = element_text(face="bold", size = 15),
+                strip.text.x = element_text(size = 17),      # elements labels
+                strip.text.y = element_text(size = 15, face = 'bold'),
                 axis.title.x=element_blank(),
                 axis.text.x=element_blank(),
                 axis.ticks.x=element_blank(),
                 axis.title.y=element_blank(),
                 axis.text.y=element_blank(),
-                axis.ticks.y=element_blank()) + sc
+                axis.ticks.y=element_blank())+ sc
       pl
   }
 #+END_SRC
+
+#+RESULTS:
 
 Now the function will work considering that the data frame contains the
 columns =part= and =source= and that we are grouping by this both of them.
@@ -228,18 +283,15 @@ Here is a plot applying the function
 
 #+BEGIN_SRC R :session 
   ## Get mean values by element
-  mean_hydrop <- group_by(dat_hydrop, part, source, element) %>%
-      summarise(concentration = mean(concentration))
-  mean_cont <- group_by(dat_cont, part, source, element) %>%
+  dat_mean <- group_by(dat_grasses, part, source, element) %>%
       summarise(concentration = mean(concentration))
   
-  png('GP2.png', width = 750)
-  plot_grid(
-  grass_plot_percent(mean_hydrop) + labs(title = 'Hydroponics'),
-  grass_plot_percent(mean_cont) + labs(title = 'Contaminated'),
-  ncol = 1, nrow = 2)
-  dev.off()
+  #png('GP2.png', width = 750)
+  grass_plot_percent(dat_mean)
+  #dev.off()
 #+END_SRC
+
+#+RESULTS:
 
 #+NAME:   fig:gp2
 #+ATTR_HTML: :width 100% :height 100%
@@ -265,32 +317,106 @@ Let's reduce the percentage possibilities and plot selected elements
       print(n = Inf)
 #+END_SRC
 
+#+RESULTS:
+#+begin_src R
+
+null device 
+          1
+
+Joining, by = c("part", "source")
+Warning message:
+Column `part` joining character vector and factor, coercing into character vector
+
+# A tibble: 44 x 6
+# Groups:   part, source [4]
+   part  source       element     Mean      Max       Min
+   <chr> <chr>        <chr>      <dbl>    <dbl>     <dbl>
+ 1 root  hydroponics  Cd          0        0        0    
+ 2 root  hydroponics  Pb          0        0        0    
+ 3 shoot hydroponics  Cd          0        0        0    
+ 4 shoot hydroponics  Pb          0        0        0    
+ 5 shoot contaminated Mo          1.06     1.81     0.445
+ 6 shoot contaminated Cd          2.02     6.97     0.386
+ 7 root  contaminated Mo          2.31     4.05     1.18 
+ 8 shoot contaminated Cu          5.55    12.2      2.81 
+ 9 shoot hydroponics  Cu          7.28    12.8      3.8  
+10 root  hydroponics  Cu          9.42    30.4      1.7  
+11 root  hydroponics  Mn         33.4    116.       3.3  
+12 root  contaminated Cu         34.6     43.1     26.0  
+13 root  contaminated Cd         36.6     63.7     22.6  
+14 shoot contaminated Pb         46.6    208.       7.12 
+15 root  hydroponics  Zn         48.3    191.       6.7  
+16 shoot hydroponics  Zn         50.3     91       27.9  
+17 shoot contaminated Na         58.2    106.      24.1  
+18 shoot hydroponics  Mn         60.7    110.      16.6  
+19 root  hydroponics  Mo         80.7    184.      29.7  
+20 shoot hydroponics  Mo         81.8    130.      61.6  
+21 shoot contaminated Mn         83.0    245.      17.8  
+22 shoot hydroponics  Fe        104.     260.      49.5  
+23 root  contaminated Na        154.     330.      68.1  
+24 shoot contaminated Fe        256.    1058.      53.0  
+25 shoot hydroponics  Na        296.     733.      83.3  
+26 shoot contaminated Zn        352.     766.     158.   
+27 root  contaminated Mn        586.    1039.     253.   
+28 shoot contaminated Mg        755.    1254.     467.   
+29 root  contaminated Pb        774.    1121.     501.   
+30 root  contaminated Mg       1120.    1666.     728.   
+31 root  contaminated Zn       1703.    2031.    1196.   
+32 root  hydroponics  Fe       1745.    5947.      90    
+33 shoot hydroponics  Mg       1819.    3209     1065.   
+34 root  hydroponics  Na       2138.    4766.     797.   
+35 root  contaminated K        2233.    3182.    1595.   
+36 root  hydroponics  Mg       2272.   10464.     458.   
+37 shoot contaminated Ca       2740.    3821.    1595.   
+38 shoot hydroponics  Ca       3524.    6360.    1813.   
+39 root  hydroponics  Ca       3923.   12363.    1005    
+40 root  contaminated Fe       3947.    5932.    1634.   
+41 shoot contaminated K        4221.    9845.     652.   
+42 root  contaminated Ca       4544.    6666.    3471.   
+43 root  hydroponics  K       12298.   26738.    5860.   
+44 shoot hydroponics  K       19312.   27256.   14232.
+#+end_src
+
+#+RESULTS:
+
 Now we can make a clear idea of which elements are in higher concentrations,
 and how to group them. Let's start by the main nutrients
 
 #+BEGIN_SRC R :session :file GP3.png :results graphics file :exports both
   nutrients <- c('K', 'Ca', 'Fe', 'Mg', 'Na')
 
-  gp_Hyd_nut <- filter(mean_hydrop, element %in% nutrients) %>%
-      grass_plot_percent()
-  gp_Cont_nut <- filter(mean_cont, element %in% nutrients) %>%
-      grass_plot_percent()
-
-  plot_grid(gp_Hyd_nut, gp_Cont_nut, nrow = 2)
+  (gp_nut <- filter(dat_mean, element %in% nutrients) %>%
+      grass_plot_percent())
 #+END_SRC
+
+#+RESULTS:
+[[file:GP3.png]]
 
 Contaminants
 
 #+BEGIN_SRC R :session :file GP4.png :results graphics file :exports both
   contaminants <- c('Pb', 'Zn', 'Cd', 'Cu', 'Mn')
 
-  gp_Hyd_cont <- filter(mean_hydrop, element %in% contaminants) %>%
-      grass_plot_percent()
-  gp_Cont_cont <- filter(mean_cont, element %in% contaminants) %>%
-      grass_plot_percent()
-
-  plot_grid(gp_Hyd_cont, gp_Cont_cont, nrow = 2)
+  (gp_cont <- filter(dat_mean, element %in% contaminants) %>%
+      grass_plot_percent()+theme(strip.text.y = element_text(size = 15)))
 #+END_SRC
+
+#+RESULTS:
+[[file:GP4.png]]
+
+#+BEGIN_SRC R :session :exports none
+  cl <- scale_fill_gradient(low = "#00ff66", high = "#000099")
+  
+  #png("GP_proportion.png", width = 600, height = 900)
+  plot_grid(gp_nut,
+            gp_cont,
+            ncol = 1)
+  #dev.off()
+#+END_SRC
+
+#+NAME:   fig:gp_proportion
+#+ATTR_HTML: :width 100% :height 100%
+[[./GP_proportion.png]]
 
 
 *** PLOT PER ELEMENT
@@ -321,6 +447,9 @@ Another way would be to plot each element on a separated area.
    grass_plot_el()
 #+END_SRC
 
+#+RESULTS:
+[[file:GP5.png]]
+
 Let's choose the main nutrients and the main contaminants to plot
 
 #+BEGIN_SRC R :session
@@ -333,6 +462,9 @@ Let's choose the main nutrients and the main contaminants to plot
    plot_grid(plotlist = target_plot, ncol = 2)
    dev.off()
 #+END_SRC
+
+#+RESULTS:
+: 2
 
 #+NAME:   fig:gp6
 #+ATTR_HTML: :width 100% :height 100%
